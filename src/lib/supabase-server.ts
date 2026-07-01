@@ -4,13 +4,22 @@ import { cookies } from "next/headers";
 /**
  * Supabase 服务端客户端
  * 用于 Server Components 和 Server Actions
+ * 如果环境变量未配置，返回 null（使用 mock 数据模式）
  */
 export function createServerClientInstance() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || url === "https://your-project.supabase.co" || !key || key === "your-anon-key") {
+    console.warn("Supabase 环境变量未配置，使用 mock 数据模式");
+    return null as any;
+  }
+
   const cookieStore = cookies();
 
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    key,
     {
       cookies: {
         getAll() {

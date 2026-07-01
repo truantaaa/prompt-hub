@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase-browser";
+import { mockPrompts } from "@/data/mock-prompts";
 import Link from "next/link";
 import { FileText, Users, Eye, Heart, Plus, TrendingUp } from "lucide-react";
 
@@ -21,6 +22,20 @@ export default function AdminDashboard() {
   }, []);
 
   const fetchData = async () => {
+    if (!supabase) {
+      // Supabase 未配置，使用 mock 数据
+      const allPrompts = mockPrompts;
+      setStats({
+        totalPrompts: allPrompts.length,
+        totalViews: allPrompts.reduce((sum, p) => sum + (p.views || 0), 0),
+        totalLikes: allPrompts.reduce((sum, p) => sum + (p.likes || 0), 0),
+        totalUsers: 1,
+      });
+      setRecentPrompts(allPrompts.slice(0, 5));
+      setLoading(false);
+      return;
+    }
+
     const { data: prompts } = await supabase
       .from("prompts")
       .select("*")

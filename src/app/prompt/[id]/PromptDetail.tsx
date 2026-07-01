@@ -26,6 +26,13 @@ export default function PromptDetail({ id }: { id: string }) {
     // 先尝试从 Supabase 获取
     try {
       const supabase = createClient();
+      if (!supabase) {
+        // Supabase 未配置，直接使用 Mock 数据
+        const mock = mockPrompts.find((p) => p.id === id);
+        setPrompt(mock || null);
+        setLoading(false);
+        return;
+      }
       const { data, error } = await supabase
         .from("prompts")
         .select("*")

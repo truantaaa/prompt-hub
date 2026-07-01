@@ -23,6 +23,12 @@ function LoginForm() {
     setLoading(true);
     setError("");
 
+    if (!supabase) {
+      setError("Supabase 未配置，无法使用登录功能。请先配置环境变量。");
+      setLoading(false);
+      return;
+    }
+
     try {
       if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({

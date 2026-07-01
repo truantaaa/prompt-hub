@@ -24,6 +24,11 @@ export default function HomePage() {
   const fetchPrompts = async () => {
     try {
       const supabase = createClient();
+      if (!supabase) {
+        // Supabase 未配置时使用 Mock 数据
+        setLoading(false);
+        return;
+      }
       const { data, error } = await supabase
         .from("prompts")
         .select("*")

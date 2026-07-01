@@ -13,10 +13,12 @@ export function Navbar() {
   const supabase = createClient();
 
   useEffect(() => {
+    if (!supabase) return;
     checkUser();
   }, []);
 
   const checkUser = async () => {
+    if (!supabase) return;
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
       const { data: profile } = await supabase
@@ -29,6 +31,7 @@ export function Navbar() {
   };
 
   const handleLogout = async () => {
+    if (!supabase) return;
     await supabase.auth.signOut();
     setUser(null);
     window.location.reload();

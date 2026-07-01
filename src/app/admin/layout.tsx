@@ -25,6 +25,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, []);
 
   const checkAuth = async () => {
+    if (!supabase) {
+      // Supabase 未配置，允许访问 admin（开发模式）
+      setUser({ role: "admin", display_name: "开发者", username: "dev" });
+      setLoading(false);
+      return;
+    }
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       router.push("/login?redirect=/admin");
@@ -40,6 +46,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   const handleLogout = async () => {
+    if (!supabase) {
+      router.push("/");
+      return;
+    }
     await supabase.auth.signOut();
     router.push("/");
     router.refresh();

@@ -31,6 +31,11 @@ export default function EditPromptPage({ params }: { params: { id: string } }) {
   }, []);
 
   const fetchPrompt = async () => {
+    if (!supabase) {
+      setError("Supabase 未配置，无法编辑");
+      setLoading(false);
+      return;
+    }
     const { data, error } = await supabase
       .from("prompts")
       .select("*")
@@ -64,6 +69,12 @@ export default function EditPromptPage({ params }: { params: { id: string } }) {
     setSaving(true);
     setError("");
 
+    if (!supabase) {
+      setError("Supabase 未配置，无法保存");
+      setSaving(false);
+      return;
+    }
+
     const { error } = await supabase
       .from("prompts")
       .update({
@@ -89,6 +100,10 @@ export default function EditPromptPage({ params }: { params: { id: string } }) {
   };
 
   const handleDelete = async () => {
+    if (!supabase) {
+      alert("Supabase 未配置，无法删除");
+      return;
+    }
     if (!confirm("确定删除？此操作不可撤销。")) return;
     const { error } = await supabase.from("prompts").delete().eq("id", params.id);
     if (!error) {

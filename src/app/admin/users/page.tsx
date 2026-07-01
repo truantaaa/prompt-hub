@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase-browser";
+import { mockPrompts } from "@/data/mock-prompts";
 import { Loader2, Shield } from "lucide-react";
 
 export default function AdminUsersPage() {
@@ -15,6 +16,11 @@ export default function AdminUsersPage() {
   }, []);
 
   const fetchUsers = async () => {
+    if (!supabase) {
+      setUsers([]);
+      setLoading(false);
+      return;
+    }
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
@@ -26,6 +32,10 @@ export default function AdminUsersPage() {
   };
 
   const handleRoleChange = async (userId: string, newRole: string) => {
+    if (!supabase) {
+      alert("Supabase 未配置，无法更新");
+      return;
+    }
     setUpdating(userId);
     const { error } = await supabase
       .from("profiles")

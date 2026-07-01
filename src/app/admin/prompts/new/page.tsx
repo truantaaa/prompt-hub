@@ -35,6 +35,12 @@ export default function NewPromptPage() {
     setSaving(true);
     setError("");
 
+    if (!supabase) {
+      setError("Supabase 未配置，无法保存");
+      setSaving(false);
+      return;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       router.push("/login");

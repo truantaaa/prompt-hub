@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase-browser";
+import { mockPrompts } from "@/data/mock-prompts";
 import Link from "next/link";
 import { Plus, Search, Edit, Trash2, Loader2 } from "lucide-react";
 import { CATEGORIES, CATEGORY_LABELS } from "@/lib/types";
@@ -18,6 +19,12 @@ export default function AdminPromptsList() {
   }, []);
 
   const fetchPrompts = async () => {
+    if (!supabase) {
+      // Supabase 未配置，使用 mock 数据
+      setPrompts(mockPrompts);
+      setLoading(false);
+      return;
+    }
     const { data, error } = await supabase
       .from("prompts")
       .select("*")
@@ -29,6 +36,10 @@ export default function AdminPromptsList() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!supabase) {
+      alert("Supabase 未配置，无法删除");
+      return;
+    }
     if (!confirm("确定删除这个提示词吗？此操作不可撤销。")) return;
     const { error } = await supabase.from("prompts").delete().eq("id", id);
     if (!error) {
