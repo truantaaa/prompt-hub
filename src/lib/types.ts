@@ -37,6 +37,7 @@ export interface Prompt {
   likes: number;
   rating_avg: number;
   rating_count: number;
+  is_published: boolean;
   created_at: string;
   updated_at: string;
 }

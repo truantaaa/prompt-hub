@@ -47,7 +47,7 @@ export default function HomePage() {
           .from("profiles")
           .select("id, display_name, username")
           .in("id", authorIds);
-        const profileMap = new Map((profiles || []).map((p: any) => [p.id, p.display_name || p.username]));
+        const profileMap = new Map<string, string>((profiles || []).map((p: any) => [p.id, p.display_name || p.username]));
         mapped.forEach((p) => {
           p.author_name = profileMap.get(p.author_id) || "匿名";
         });
