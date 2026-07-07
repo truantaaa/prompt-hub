@@ -36,23 +36,33 @@ export function PromptTester({ content }: PromptTesterProps) {
         return;
       }
 
-      const response = await fetch("/api/longcat", {
+      const response = await fetch("https://api.longcat.chat/openai/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey.trim()}`,
         },
         body: JSON.stringify({
-          prompt: finalPrompt,
-          apiKey: apiKey.trim(),
           model: model,
+          messages: [{ role: "user", content: finalPrompt }],
+          max_tokens: 2000,
+          temperature: 0.7,
         }),
       });
 
-      const data = await response.json();
       if (!response.ok) {
-        setResult(`❌ 错误: ${data.error || "请求失败"}`);
+        const errorText = await response.text();
+        let errorMsg = "请求失败";
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMsg = errorData.error?.message || errorData.message || errorMsg;
+        } catch {
+          errorMsg = `HTTP ${response.status}: ${errorText.substring(0, 200)}`;
+        }
+        setResult(`❌ 错误: ${errorMsg}`);
       } else {
-        setResult(data.content || "（空响应）");
+        const data = await response.json();
+        setResult(data.choices?.[0]?.message?.content || "（空响应）");
       }
     } catch (err: any) {
       setResult(`❌ 请求失败: ${err?.message || "请检查网络连接"}`);
