@@ -31,15 +31,58 @@ function LoginForm() {
 
     try {
       if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({
+        // 1. 注册（尝试不发送确认邮件，避免 rate limit）
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            data: {
+              username: email.split('@')[0],
+            },
+            // 不发送确认邮件，避免 rate limit
+            emailRedirectTo: window.location.origin,
+          }
         });
-        if (error) throw error;
-        if (data.user) {
-          setError("注册成功！请检查邮箱确认邮件，确认后登录。");
-          setMode("login");
+
+        // 处理 rate limit 错误
+        if (signUpError) {
+          if (signUpError.message.includes('rate limit') || signUpError.message.includes('rate_limit')) {
+            setError("注册太频繁，请等待 1 小时后重试，或尝试直接登录。");
+            setLoading(false);
+            return;
+          }
+          throw signUpError;
         }
+
+        if (signUpData.user) {
+          // 2. 注册成功后立即尝试登录（绕过邮箱确认）
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+          
+          if (signInError) {
+            // 如果登录失败，可能是邮箱未确认
+            if (signInError.message.includes('Email not confirmed') || signInError.message.includes('not confirmed')) {
+              setError("注册成功，但邮箱需要确认。请等待 1 分钟后尝试登录，或联系管理员。");
+            } else {
+              setError("注册成功，请使用刚才的账号密码登录。");
+            }
+            setMode("login");
+            setLoading(false);
+            return;
+          }
+          
+          if (signInData.session) {
+            // 登录成功，直接跳转
+            router.push(redirect);
+            router.refresh();
+            return;
+          }
+        }
+        
+        setError("注册成功！请使用刚才的账号密码登录。");
+        setMode("login");
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
