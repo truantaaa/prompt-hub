@@ -15,6 +15,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [mode, setMode] = useState<"login" | "signup">("login");
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
 
   const supabase = createClient();
 
@@ -31,7 +32,8 @@ function LoginForm() {
 
     try {
       if (mode === "signup") {
-        // 1. 注册（尝试不发送确认邮件，避免 rate limit）
+        setNeedsConfirmation(false);
+        // 1. 注册
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -39,8 +41,7 @@ function LoginForm() {
             data: {
               username: email.split('@')[0],
             },
-            // 不发送确认邮件，避免 rate limit
-            emailRedirectTo: window.location.origin,
+            emailRedirectTo: window.location.origin + '/login',
           }
         });
 
@@ -55,16 +56,17 @@ function LoginForm() {
         }
 
         if (signUpData.user) {
-          // 2. 注册成功后立即尝试登录（绕过邮箱确认）
+          // 2. 注册成功后立即尝试登录
           const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
             email,
             password,
           });
           
           if (signInError) {
-            // 如果登录失败，可能是邮箱未确认
+            // 如果登录失败是因为邮箱未确认
             if (signInError.message.includes('Email not confirmed') || signInError.message.includes('not confirmed')) {
-              setError("注册成功，但邮箱需要确认。请等待 1 分钟后尝试登录，或联系管理员。");
+              setNeedsConfirmation(true);
+              setError("注册成功！但邮箱需要确认后才能登录。请检查邮箱（包括垃圾邮件文件夹），或点击下方按钮重新发送确认邮件。");
             } else {
               setError("注册成功，请使用刚才的账号密码登录。");
             }
@@ -84,16 +86,53 @@ function LoginForm() {
         setError("注册成功！请使用刚才的账号密码登录。");
         setMode("login");
       } else {
+        setNeedsConfirmation(false);
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
-        if (error) throw error;
+        
+        if (error) {
+          // 登录时如果是邮箱未确认
+          if (error.message.includes('Email not confirmed') || error.message.includes('not confirmed')) {
+            setNeedsConfirmation(true);
+            setError("邮箱尚未确认。请检查邮箱（包括垃圾邮件文件夹），或点击下方按钮重新发送确认邮件。");
+            setLoading(false);
+            return;
+          }
+          throw error;
+        }
+        
         router.push(redirect);
         router.refresh();
       }
     } catch (err: any) {
       setError(err?.message || "操作失败");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendEmail = async () => {
+    if (!supabase || !email) return;
+    setLoading(true);
+    setError("");
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+      });
+      if (error) {
+        if (error.message.includes('rate limit') || error.message.includes('rate_limit')) {
+          setError("发送太频繁，请等待 1 小时后重试。");
+        } else {
+          setError(error.message);
+        }
+      } else {
+        setError("确认邮件已重新发送！请检查邮箱（包括垃圾邮件文件夹）。");
+      }
+    } catch (err: any) {
+      setError(err?.message || "发送失败");
     } finally {
       setLoading(false);
     }
@@ -148,12 +187,24 @@ function LoginForm() {
 
           {error && (
             <div className={`rounded-lg p-3 text-sm ${
-              error.includes("成功")
+              error.includes("成功") || error.includes("已发送") || error.includes("已重新发送")
                 ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
                 : "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"
             }`}>
               {error}
             </div>
+          )}
+
+          {needsConfirmation && (
+            <button
+              type="button"
+              onClick={handleResendEmail}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 rounded-lg border border-primary py-2.5 text-sm font-medium text-primary disabled:opacity-50 hover:bg-primary/5 transition-colors"
+            >
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+              重新发送确认邮件
+            </button>
           )}
 
           <button
