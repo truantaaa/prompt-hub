@@ -36,24 +36,23 @@ export function PromptTester({ content }: PromptTesterProps) {
         return;
       }
 
-      const response = await fetch("https://api.longcat.chat/openai/v1/chat/completions", {
+      const response = await fetch("/api/longcat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey.trim()}`,
         },
         body: JSON.stringify({
+          prompt: finalPrompt,
+          apiKey: apiKey.trim(),
           model: model,
-          messages: [{ role: "user", content: finalPrompt }],
-          max_tokens: 2000,
         }),
       });
 
       const data = await response.json();
       if (!response.ok) {
-        setResult(`❌ 错误: ${data.error?.message || "请求失败"}`);
+        setResult(`❌ 错误: ${data.error || "请求失败"}`);
       } else {
-        setResult(data.choices?.[0]?.message?.content || "（空响应）");
+        setResult(data.content || "（空响应）");
       }
     } catch (err: any) {
       setResult(`❌ 请求失败: ${err?.message || "请检查网络连接"}`);
