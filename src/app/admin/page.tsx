@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase-browser";
 import { mockPrompts } from "@/data/mock-prompts";
+import type { Prompt } from "@/lib/types";
 import Link from "next/link";
 import { FileText, Users, Eye, Heart, Plus, TrendingUp } from "lucide-react";
 
@@ -13,7 +14,7 @@ export default function AdminDashboard() {
     totalLikes: 0,
     totalUsers: 0,
   });
-  const [recentPrompts, setRecentPrompts] = useState<any[]>([]);
+  const [recentPrompts, setRecentPrompts] = useState<Prompt[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
@@ -27,8 +28,8 @@ export default function AdminDashboard() {
       const allPrompts = mockPrompts;
       setStats({
         totalPrompts: allPrompts.length,
-        totalViews: allPrompts.reduce((sum, p) => sum + (p.views || 0), 0),
-        totalLikes: allPrompts.reduce((sum, p) => sum + (p.likes || 0), 0),
+      totalViews: allPrompts.reduce((sum: number, p: Prompt) => sum + (p.views || 0), 0),
+      totalLikes: allPrompts.reduce((sum: number, p: Prompt) => sum + (p.likes || 0), 0),
         totalUsers: 1,
       });
       setRecentPrompts(allPrompts.slice(0, 5));
@@ -47,8 +48,8 @@ export default function AdminDashboard() {
     const allPrompts = prompts || [];
     setStats({
       totalPrompts: allPrompts.length,
-      totalViews: allPrompts.reduce((sum, p) => sum + (p.views || 0), 0),
-      totalLikes: allPrompts.reduce((sum, p) => sum + (p.likes || 0), 0),
+      totalViews: allPrompts.reduce((sum: number, p: Prompt) => sum + (p.views || 0), 0),
+      totalLikes: allPrompts.reduce((sum: number, p: Prompt) => sum + (p.likes || 0), 0),
       totalUsers: userCount || 0,
     });
     setRecentPrompts(allPrompts.slice(0, 5));
