@@ -16,7 +16,7 @@ export function PromptTester({ content }: PromptTesterProps) {
   const [copied, setCopied] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
-  const [model, setModel] = useState("gpt-4o-mini");
+  const [model, setModel] = useState("LongCat-2.0");
 
   const finalPrompt = useMemo(() => {
     return fillVariables(content, variableValues);
@@ -30,13 +30,13 @@ export function PromptTester({ content }: PromptTesterProps) {
         // 模拟模式：没有 API key 时返回模拟结果
         await new Promise((resolve) => setTimeout(resolve, 1500));
         setResult(
-          `[模拟回复] 这是根据你的 Prompt 生成的示例回复。\n\n你输入的 Prompt 是：\n\n${finalPrompt}\n\n（配置 OpenAI API Key 后可获得真实 AI 回复）\n\n示例输出：\n\n根据你的需求，我可以为你提供以下建议...\n\n1. 首先分析核心需求\n2. 梳理关键要素\n3. 提供具体方案\n\n希望对你有帮助！`
+          `[模拟回复] 这是根据你的 Prompt 生成的示例回复。\n\n你输入的 Prompt 是：\n\n${finalPrompt}\n\n（配置 LongCat API Key 后可获得真实 AI 回复）\n\n示例输出：\n\n根据你的需求，我可以为你提供以下建议...\n\n1. 首先分析核心需求\n2. 梳理关键要素\n3. 提供具体方案\n\n希望对你有帮助！`
         );
         setLoading(false);
         return;
       }
 
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      const response = await fetch("https://api.longcat.chat/openai/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -79,14 +79,14 @@ export function PromptTester({ content }: PromptTesterProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">
-              OpenAI API Key（可选，留空使用模拟模式）
+              LongCat API Key（可选，留空使用模拟模式）
             </label>
             <div className="relative">
               <input
                 type={showApiKey ? "text" : "password"}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="sk-..."
+                placeholder="输入 LongCat API Key..."
                 className="w-full rounded-md border bg-background px-3 py-1.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-primary/20"
               />
               <button
@@ -105,9 +105,7 @@ export function PromptTester({ content }: PromptTesterProps) {
               onChange={(e) => setModel(e.target.value)}
               className="w-full rounded-md border bg-background px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
             >
-              <option value="gpt-4o-mini">GPT-4o Mini</option>
-              <option value="gpt-4o">GPT-4o</option>
-              <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+              <option value="LongCat-2.0">LongCat-2.0（美团万亿参数大模型）</option>
             </select>
           </div>
         </div>
