@@ -1,196 +1,300 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Play, Copy, Check, Loader2, Variable, Key, Settings } from "lucide-react";
-import { extractVariables, fillVariables } from "@/lib/utils";
+import { useState, useMemo, useEffect } from "react";
+import {
+  Play, Copy, Check, Loader2, Key, Plus, X, Edit3, Eye,
+} from "lucide-react";
+import { extractVariables, fillVariables, getVariableLabel } from "@/lib/utils";
 
 interface PromptTesterProps {
   content: string;
 }
 
 export function PromptTester({ content }: PromptTesterProps) {
-  const variables = useMemo(() => extractVariables(content), [content]);
+  const extractedVars = useMemo(() => extractVariables(content), [content]);
+
   const [variableValues, setVariableValues] = useState<Record<string, string>>({});
-  const [result, setResult] = useState<string>("");
-  const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [customVars, setCustomVars] = useState<string[]>([]);
+  const [newVarName, setNewVarName] = useState("");
+  const [showAddVar, setShowAddVar] = useState(false);
+
+  const [editedPrompt, setEditedPrompt] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [promptCopied, setPromptCopied] = useState(false);
+
   const [apiKey, setApiKey] = useState("");
-  const [showApiKey, setShowApiKey] = useState(false);
   const [model, setModel] = useState("LongCat-2.0");
+  const [result, setResult] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
+
+  const allVars = useMemo(() => {
+    const combined = [...extractedVars];
+    for (const cv of customVars) {
+      if (!combined.includes(cv)) combined.push(cv);
+    }
+    return combined;
+  }, [extractedVars, customVars]);
 
   const finalPrompt = useMemo(() => {
-    return fillVariables(content, variableValues);
-  }, [content, variableValues]);
+    const filled = fillVariables(content, variableValues);
+    // Also replace custom vars
+    let result = filled;
+    for (const cv of customVars) {
+      const val = variableValues[cv];
+      if (val) {
+        result = result.replace(new RegExp(`\\{\\{${cv}\\}\\}`, "g"), val);
+      }
+    }
+    return result;
+  }, [content, variableValues, customVars]);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setEditedPrompt(finalPrompt);
+    }
+  }, [finalPrompt, isEditing]);
+
+  const handleVarChange = (varName: string, value: string) => {
+    setVariableValues((prev) => ({ ...prev, [varName]: value }));
+  };
+
+  const handleAddCustomVar = () => {
+    const name = newVarName.trim().replace(/[{}]/g, "");
+    if (name && !allVars.includes(name)) {
+      setCustomVars((prev) => [...prev, name]);
+      setNewVarName("");
+      setShowAddVar(false);
+    }
+  };
+
+  const handleRemoveCustomVar = (varName: string) => {
+    setCustomVars((prev) => prev.filter((v) => v !== varName));
+    setVariableValues((prev) => {
+      const next = { ...prev };
+      delete next[varName];
+      return next;
+    });
+  };
+
+  const handleCopyPrompt = async () => {
+    await navigator.clipboard.writeText(isEditing ? editedPrompt : finalPrompt);
+    setPromptCopied(true);
+    setTimeout(() => setPromptCopied(false), 2000);
+  };
 
   const handleTest = async () => {
+    const promptToSend = isEditing ? editedPrompt : finalPrompt;
+    if (!apiKey.trim()) {
+      setError("请输入 LongCat API Key");
+      return;
+    }
     setLoading(true);
+    setError("");
     setResult("");
     try {
-      if (!apiKey.trim()) {
-        // 模拟模式：没有 API key 时返回模拟结果
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        setResult(
-          `[模拟回复] 这是根据你的 Prompt 生成的示例回复。\n\n你输入的 Prompt 是：\n\n${finalPrompt}\n\n（配置 LongCat API Key 后可获得真实 AI 回复）\n\n示例输出：\n\n根据你的需求，我可以为你提供以下建议...\n\n1. 首先分析核心需求\n2. 梳理关键要素\n3. 提供具体方案\n\n希望对你有帮助！`
-        );
-        setLoading(false);
+      const response = await fetch(
+        "https://api.longcat.chat/openai/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey.trim()}`,
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [{ role: "user", content: promptToSend }],
+            max_tokens: 2000,
+            temperature: 0.7,
+          }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error?.message || `请求失败: ${response.status}`);
         return;
       }
-
-      const response = await fetch("https://api.longcat.chat/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey.trim()}`,
-        },
-        body: JSON.stringify({
-          model: model,
-          messages: [{ role: "user", content: finalPrompt }],
-          max_tokens: 2000,
-          temperature: 0.7,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMsg = "请求失败";
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMsg = errorData.error?.message || errorData.message || errorMsg;
-        } catch {
-          errorMsg = `HTTP ${response.status}: ${errorText.substring(0, 200)}`;
-        }
-        setResult(`❌ 错误: ${errorMsg}`);
-      } else {
-        const data = await response.json();
-        setResult(data.choices?.[0]?.message?.content || "（空响应）");
-      }
-    } catch (err: any) {
-      setResult(`❌ 请求失败: ${err?.message || "请检查网络连接"}`);
+      setResult(data.choices?.[0]?.message?.content || "无返回内容");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "请求失败");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCopyResult = async () => {
-    await navigator.clipboard.writeText(result);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   return (
-    <div className="space-y-4">
-      {/* API Key 配置 */}
-      <div className="rounded-lg border bg-muted/30 p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Key className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium">API 配置</span>
+    <div className="space-y-6">
+      {/* API Key & Model */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Key className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium">LongCat API 配置</span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">
-              LongCat API Key（可选，留空使用模拟模式）
-            </label>
-            <div className="relative">
-              <input
-                type={showApiKey ? "text" : "password"}
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="输入 LongCat API Key..."
-                className="w-full rounded-md border bg-background px-3 py-1.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-primary/20"
-              />
-              <button
-                type="button"
-                onClick={() => setShowApiKey(!showApiKey)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
-              >
-                {showApiKey ? "隐藏" : "显示"}
-              </button>
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">模型</label>
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
-            >
-              <option value="LongCat-2.0">LongCat-2.0（美团万亿参数大模型）</option>
-            </select>
-          </div>
+        <div className="flex gap-2">
+          <input
+            type={showApiKey ? "text" : "password"}
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder="输入 LongCat API Key"
+            className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm"
+          />
+          <button
+            onClick={() => setShowApiKey(!showApiKey)}
+            className="rounded-lg border px-3 py-2 text-sm hover:bg-muted transition-colors"
+          >
+            {showApiKey ? "隐藏" : "显示"}
+          </button>
         </div>
+        <select
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          className="rounded-lg border bg-background px-3 py-2 text-sm"
+        >
+          <option value="LongCat-2.0">LongCat-2.0（美团万亿参数大模型）</option>
+          <option value="LongCat-Flash">LongCat-Flash（快速版）</option>
+        </select>
       </div>
 
-      {/* 变量输入区 */}
-      {variables.length > 0 && (
-        <div className="rounded-lg border bg-muted/30 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Variable className="h-4 w-4 text-primary" />
+      {/* Variable Inputs */}
+      {allVars.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
             <span className="text-sm font-medium">变量填充</span>
+            <button
+              onClick={() => setShowAddVar(!showAddVar)}
+              className="flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              <Plus className="h-3 w-3" />
+              添加变量
+            </button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {variables.map((varName) => (
-              <div key={varName}>
-                <label className="text-xs text-muted-foreground mb-1 block">
-                  {"{{"}{varName}{"}}"}
-                </label>
-                <input
-                  type="text"
-                  value={variableValues[varName] || ""}
-                  onChange={(e) =>
-                    setVariableValues((prev) => ({
-                      ...prev,
-                      [varName]: e.target.value,
-                    }))
-                  }
-                  placeholder={`输入 ${varName}...`}
-                  className="w-full rounded-md border bg-background px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-            ))}
+
+          {showAddVar && (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newVarName}
+                onChange={(e) => setNewVarName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddCustomVar()}
+                placeholder="变量名（如 custom_field）"
+                className="flex-1 rounded-lg border bg-background px-3 py-1.5 text-sm"
+              />
+              <button
+                onClick={handleAddCustomVar}
+                className="rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:opacity-90"
+              >
+                确认
+              </button>
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {allVars.map((varName) => {
+              const isCustom = customVars.includes(varName);
+              return (
+                <div key={varName} className="space-y-1">
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    {getVariableLabel(varName)}
+                    <code className="rounded bg-muted px-1 text-[10px]">{`{{${varName}}}`}</code>
+                    {isCustom && (
+                      <button
+                        onClick={() => handleRemoveCustomVar(varName)}
+                        className="ml-auto text-red-500 hover:text-red-600"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    value={variableValues[varName] || ""}
+                    onChange={(e) => handleVarChange(varName, e.target.value)}
+                    placeholder={`输入${getVariableLabel(varName)}`}
+                    className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* 最终 prompt 预览 */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
+      {/* Final Prompt Preview */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
           <span className="text-sm font-medium">最终 Prompt 预览</span>
-          <button
-            onClick={handleTest}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50 hover:bg-primary/90 transition-colors"
-          >
-            {loading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Play className="h-3.5 w-3.5" />
-            )}
-            {loading ? "测试中..." : "测试效果"}
-          </button>
-        </div>
-        <pre className="whitespace-pre-wrap rounded-lg border bg-muted/30 p-4 text-sm font-mono max-h-48 overflow-y-auto">
-          {finalPrompt}
-        </pre>
-      </div>
-
-      {/* AI 回复结果 */}
-      {result && (
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">AI 回复</span>
+          <div className="flex items-center gap-2">
             <button
-              onClick={handleCopyResult}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-accent transition-colors"
+              onClick={() => {
+                if (isEditing) {
+                  setIsEditing(false);
+                  setEditedPrompt(finalPrompt);
+                } else {
+                  setIsEditing(true);
+                }
+              }}
+              className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
+                isEditing
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-muted"
+              }`}
             >
-              {copied ? (
+              {isEditing ? <Eye className="h-3 w-3" /> : <Edit3 className="h-3 w-3" />}
+              {isEditing ? "完成编辑" : "编辑"}
+            </button>
+            <button
+              onClick={handleCopyPrompt}
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-muted transition-colors"
+            >
+              {promptCopied ? (
                 <Check className="h-3 w-3 text-green-500" />
               ) : (
                 <Copy className="h-3 w-3" />
               )}
-              {copied ? "已复制" : "复制"}
+              {promptCopied ? "已复制" : "复制"}
             </button>
           </div>
-          <div className="whitespace-pre-wrap rounded-lg border bg-gradient-to-br from-primary/5 to-transparent p-4 text-sm max-h-96 overflow-y-auto">
+        </div>
+        {isEditing ? (
+          <textarea
+            value={editedPrompt}
+            onChange={(e) => setEditedPrompt(e.target.value)}
+            className="w-full min-h-[200px] rounded-xl border bg-background p-4 text-sm font-mono leading-relaxed resize-y focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        ) : (
+          <pre className="whitespace-pre-wrap rounded-xl border bg-muted/30 p-4 text-sm font-mono leading-relaxed">
+            {finalPrompt}
+          </pre>
+        )}
+      </div>
+
+      {/* Test Button */}
+      <button
+        onClick={handleTest}
+        disabled={loading}
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
+      >
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Play className="h-4 w-4" />
+        )}
+        {loading ? "调用中..." : "运行测试"}
+      </button>
+
+      {/* Error */}
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+          {error}
+        </div>
+      )}
+
+      {/* Result */}
+      {result && (
+        <div className="space-y-2">
+          <span className="text-sm font-medium">LongCat 返回结果</span>
+          <div className="whitespace-pre-wrap rounded-xl border bg-muted/30 p-4 text-sm leading-relaxed">
             {result}
           </div>
         </div>

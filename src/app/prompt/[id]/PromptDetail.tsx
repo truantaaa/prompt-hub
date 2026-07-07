@@ -103,10 +103,6 @@ export default function PromptDetail({ id }: { id: string }) {
           <Heart className={`h-4 w-4 ${liked ? "fill-red-500 text-red-500" : ""}`} />
           {formatNumber((prompt.likes || 0) + (liked ? 1 : 0))}
         </button>
-        <button onClick={handleCopy} className="flex items-center gap-1.5 hover:text-primary transition-colors">
-          {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-          {copied ? "已复制" : "复制"}
-        </button>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -118,7 +114,13 @@ export default function PromptDetail({ id }: { id: string }) {
       </div>
 
       <div>
-        <h2 className="text-lg font-semibold mb-3">Prompt 内容</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">Prompt 内容</h2>
+          <button onClick={handleCopy} className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm hover:bg-muted transition-colors">
+            {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+            {copied ? "已复制" : "复制"}
+          </button>
+        </div>
         <pre className="whitespace-pre-wrap rounded-xl border bg-muted/30 p-6 text-sm font-mono leading-relaxed">{prompt.content}</pre>
       </div>
 
