@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 /**
  * 认证中间件
  * 保护 /admin 路径，只有登录的管理员/编辑可以访问
+ * 如果 Supabase 环境变量未配置，允许访问（开发模式）
  */
 export async function middleware(request: NextRequest) {
   // 只保护 /admin 路径
@@ -11,10 +12,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // Supabase 未配置时允许访问（开发模式）
+  if (!url || url === "https://your-project.supabase.co" || !key || key === "your-anon-key") {
+    console.warn("[middleware] Supabase 未配置，允许访问 admin 路径（开发模式）");
+    return NextResponse.next();
+  }
+
   // 创建 Supabase 客户端检查会话
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    key,
     {
       cookies: {
         getAll() {
