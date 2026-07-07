@@ -38,17 +38,30 @@ export function PromptTester({ content }: PromptTesterProps) {
   }, [extractedVars, customVars]);
 
   const finalPrompt = useMemo(() => {
-    const filled = fillVariables(content, variableValues);
-    // Also replace custom vars
-    let result = filled;
+    // 先填充原始 prompt 中的变量占位符
+    let result = fillVariables(content, variableValues);
+    // 再替换自定义变量中可能存在的占位符（保险）
     for (const cv of customVars) {
-      const val = variableValues[cv];
-      if (val) {
-        result = result.replace(new RegExp(`\\{\\{${cv}\\}\\}`, "g"), val);
+      if (extractedVars.includes(cv)) {
+        const val = variableValues[cv];
+        if (val) {
+          result = result.replace(new RegExp(`\\{\\{${cv}\\}\\}`, "g"), val);
+        }
       }
     }
+    // 自定义变量（原始 prompt 中不存在的）追加到末尾
+    const customVarLines = customVars
+      .filter((cv) => !extractedVars.includes(cv))
+      .map((cv) => {
+        const val = variableValues[cv];
+        return val ? `${getVariableLabel(cv)}: ${val}` : `{{${cv}}}`;
+      })
+      .filter(Boolean);
+    if (customVarLines.length > 0) {
+      result += "\n\n---\n" + customVarLines.join("\n");
+    }
     return result;
-  }, [content, variableValues, customVars]);
+  }, [content, variableValues, customVars, extractedVars]);
 
   useEffect(() => {
     if (!isEditing) {
