@@ -12,23 +12,47 @@ export default function AdminPromptsList() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [user, setUser] = useState<any>(null);
   const supabase = createClient();
 
   useEffect(() => {
-    fetchPrompts();
+    fetchUser().then(() => fetchPrompts());
   }, []);
+
+  const fetchUser = async () => {
+    if (!supabase) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", session.user.id)
+        .single();
+      setUser(profile);
+    }
+  };
 
   const fetchPrompts = async () => {
     if (!supabase) {
-      // Supabase 未配置，使用 mock 数据
       setPrompts(mockPrompts);
       setLoading(false);
       return;
     }
-    const { data, error } = await supabase
+    
+    const { data: { session } } = await supabase.auth.getSession();
+    const isStaff = user?.role === 'admin' || user?.role === 'editor';
+    
+    let query = supabase
       .from("prompts")
       .select("*")
       .order("created_at", { ascending: false });
+    
+    // 普通用户只能看到自己的提示词
+    if (!isStaff && session) {
+      query = query.eq("author_id", session.user.id);
+    }
+    
+    const { data, error } = await query;
     if (!error && data) {
       setPrompts(data);
     }

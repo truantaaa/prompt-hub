@@ -48,18 +48,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // 检查用户角色
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", session.user.id)
-    .single();
-
-  // 非管理员/编辑 → 返回无权限提示
-  if (!profile || !["admin", "editor"].includes(profile.role)) {
-    return new NextResponse("无权限访问，需要管理员或编辑角色", { status: 403 });
-  }
-
   return NextResponse.next();
 }
 

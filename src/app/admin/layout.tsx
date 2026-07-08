@@ -63,25 +63,35 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  const navItems = [
-    { href: "/admin", label: "仪表盘", icon: LayoutDashboard },
-    { href: "/admin/prompts", label: "提示词管理", icon: FileText },
-    ...(user?.role === "admin"
-      ? [{ href: "/admin/users", label: "用户管理", icon: Users }]
-      : []),
-  ];
+    const isAdmin = user?.role === "admin";
+    const isEditor = user?.role === "editor";
+    const isStaff = isAdmin || isEditor;
 
-  return (
-    <div className="flex gap-6">
-      {/* 侧边栏 */}
-      <aside className="w-56 shrink-0 space-y-1">
-        <div className="px-3 py-2 mb-2">
-          <p className="text-xs text-muted-foreground">管理后台</p>
-          <p className="text-sm font-medium">{user?.display_name || user?.username}</p>
-          <span className="inline-block mt-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
-            {user?.role === "admin" ? "管理员" : "编辑"}
-          </span>
-        </div>
+    const navItems = [
+      { href: "/admin", label: isStaff ? "仪表盘" : "我的提示词", icon: LayoutDashboard },
+      { href: "/admin/prompts", label: "提示词管理", icon: FileText },
+      ...(isAdmin
+        ? [{ href: "/admin/users", label: "用户管理", icon: Users }]
+        : []),
+    ];
+
+    return (
+      <div className="flex gap-6">
+        {/* 侧边栏 */}
+        <aside className="w-56 shrink-0 space-y-1">
+          <div className="px-3 py-2 mb-2">
+            <p className="text-xs text-muted-foreground">{isStaff ? "管理后台" : "个人中心"}</p>
+            <p className="text-sm font-medium">{user?.display_name || user?.username}</p>
+            <span className={`inline-block mt-1 rounded px-1.5 py-0.5 text-xs ${
+              isAdmin 
+                ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                : isEditor
+                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+            }`}>
+              {isAdmin ? "管理员" : isEditor ? "编辑" : "用户"}
+            </span>
+          </div>
 
         {navItems.map((item) => {
           const Icon = item.icon;

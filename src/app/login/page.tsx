@@ -238,7 +238,7 @@ function LoginForm() {
         </form>
 
         <p className="text-center text-xs text-muted-foreground">
-          注册后需要在 Supabase 中将角色设为 admin 才能访问管理后台
+          注册后即可创建和管理自己的提示词
         </p>
       </div>
     </div>

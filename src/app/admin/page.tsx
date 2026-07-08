@@ -16,20 +16,33 @@ export default function AdminDashboard() {
   });
   const [recentPrompts, setRecentPrompts] = useState<Prompt[]>([]);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
   const supabase = createClient();
 
   useEffect(() => {
-    fetchData();
+    fetchUser().then(() => fetchData());
   }, []);
+
+  const fetchUser = async () => {
+    if (!supabase) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", session.user.id)
+        .single();
+      setUser(profile);
+    }
+  };
 
   const fetchData = async () => {
     if (!supabase) {
-      // Supabase 未配置，使用 mock 数据
       const allPrompts = mockPrompts;
       setStats({
         totalPrompts: allPrompts.length,
-      totalViews: allPrompts.reduce((sum: number, p: Prompt) => sum + (p.views || 0), 0),
-      totalLikes: allPrompts.reduce((sum: number, p: Prompt) => sum + (p.likes || 0), 0),
+        totalViews: allPrompts.reduce((sum: number, p: Prompt) => sum + (p.views || 0), 0),
+        totalLikes: allPrompts.reduce((sum: number, p: Prompt) => sum + (p.likes || 0), 0),
         totalUsers: 1,
       });
       setRecentPrompts(allPrompts.slice(0, 5));
@@ -37,20 +50,36 @@ export default function AdminDashboard() {
       return;
     }
 
-    const { data: prompts } = await supabase
+    const isStaff = user?.role === 'admin' || user?.role === 'editor';
+    
+    let query = supabase
       .from("prompts")
       .select("*")
       .order("created_at", { ascending: false });
-    const { count: userCount } = await supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true });
+    
+    // 普通用户只能看到自己的数据
+    if (!isStaff && user) {
+      query = query.eq("author_id", user.id);
+    }
+
+    const { data: prompts } = await query;
+    
+    let userCount = 0;
+    if (isStaff) {
+      const { count } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true });
+      userCount = count || 0;
+    } else {
+      userCount = 1;
+    }
 
     const allPrompts = prompts || [];
     setStats({
       totalPrompts: allPrompts.length,
       totalViews: allPrompts.reduce((sum: number, p: Prompt) => sum + (p.views || 0), 0),
       totalLikes: allPrompts.reduce((sum: number, p: Prompt) => sum + (p.likes || 0), 0),
-      totalUsers: userCount || 0,
+      totalUsers: userCount,
     });
     setRecentPrompts(allPrompts.slice(0, 5));
     setLoading(false);

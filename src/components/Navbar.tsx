@@ -37,8 +37,6 @@ export function Navbar() {
     window.location.reload();
   };
 
-  const isStaff = user && ["admin", "editor"].includes(user.role);
-
   const navItems = [
     { href: "/", label: "探索" },
     { href: "/?sort=popular", label: "热门" },
@@ -85,7 +83,7 @@ export function Navbar() {
           </div>
         </div>
 
-        {isStaff ? (
+        {user ? (
           <div className="flex items-center gap-2">
             <Link
               href="/admin"
@@ -102,14 +100,6 @@ export function Navbar() {
               <LogOut className="h-4 w-4" />
             </button>
           </div>
-        ) : user ? (
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium hover:bg-accent"
-          >
-            <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">退出</span>
-          </button>
         ) : (
           <Link
             href="/login"
